@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Web GIS - Bangkok Transit & Food & Flood</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#1a1a2e;--bg2:#16213e;--acc:#0f3460;
+  --red:#e94560;--gold:#FFD700;
+  --txt:#e0e0e0;--muted:#888;--bdr:#2a2a4a;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{
+  display:flex;flex-direction:column;
+  font-family:'Sarabun',sans-serif;
+  background:#0d1117;color:var(--txt);
+}
+#hdr{
+  flex-shrink:0;height:56px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 18px;
+  background:linear-gradient(135deg,var(--bg),var(--acc));
+  border-bottom:2px solid var(--red);z-index:1000;
+}
+.hdr-logo{display:flex;align-items:center;gap:11px}
+.hdr-logo i{font-size:22px;color:var(--gold);filter:drop-shadow(0 0 6px var(--gold))}
+.hdr-title{font-size:15px;font-weight:700;line-height:1.2}
+.hdr-title span{color:var(--gold)}
+.hdr-sub{font-size:10px;color:var(--muted);margin-top:1px}
+.hdr-right{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.chip{padding:3px 10px;border-radius:20px;font-size:11px;background:var(--acc);border:1px solid var(--red)}
+.chip.dim{border-color:var(--bdr);color:var(--muted)}
+.chip.blue{border-color:#60a5fa;color:#60a5fa}
+.chip.green{border-color:#4ade80;color:#4ade80}
+/* ★ MAIN LAYOUT ★ */
+#main{
+  flex:1;
+  display:flex;
+  overflow:hidden;
+  min-height:0;
+}
+#sb{
+  width:285px;min-width:285px;flex-shrink:0;
+  height:100%;
+  background:var(--bg);
+  display:flex;flex-direction:column;
+  overflow-y:auto;overflow-x:hidden;
+  box-shadow:4px 0 16px rgba(0,0,0,.5);z-index:500;
+}
+#sb::-webkit-scrollbar{width:3px}
+#sb::-webkit-scrollbar-thumb{background:var(--red);border-radius:3px}
+.sh{
+  flex-shrink:0;
+  display:flex;align-items:center;gap:7px;
+  padding:9px 13px;background:var(--acc);color:var(--gold);
+  font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+  border-left:3px solid var(--red);position:sticky;top:0;z-index:5;
+}
+.sb-body{
+  padding:11px 13px;border-bottom:1px solid var(--bdr);
+  display:flex;flex-direction:column;gap:7px;
+}
+.grp-label{font-size:10px;font-weight:700;letter-spacing:.5px;padding:4px 0 2px}
+.lr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 10px;background:var(--bg2);border-radius:7px;
+  border:1px solid transparent;transition:all .2s;
+}
+.lr:hover{border-color:var(--red);transform:translateX(2px)}
+.ll{display:flex;align-items:center;gap:9px}
+.dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;box-shadow:0 0 5px currentColor}
+.ln{font-size:12px;font-weight:600}
+.ls{font-size:10px;color:var(--muted)}
+.sw{position:relative;width:36px;height:20px;flex-shrink:0}
+.sw input{display:none}
+.sk{position:absolute;inset:0;background:#444;border-radius:20px;cursor:pointer;transition:background .3s}
+.sk::before{content:'';position:absolute;width:14px;height:14px;top:3px;left:3px;background:#fff;border-radius:50%;transition:transform .3s}
+.sw input:checked+.sk{background:var(--red)}
+.sw input:checked+.sk::before{transform:translateX(16px)}
+.fl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px}
+.fc{
+  width:100%;padding:7px 9px;background:var(--bg2);border:1px solid var(--bdr);
+  border-radius:5px;color:var(--txt);font-family:'Sarabun',sans-serif;
+  font-size:12px;outline:none;transition:border-color .2s;
+}
+.fc:focus{border-color:var(--red)}
+.fc option{background:var(--bg2)}
+.bp,.bg{
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  width:100%;padding:8px;border:none;border-radius:5px;
+  font-family:'Sarabun',sans-serif;font-size:12px;font-weight:600;
+  cursor:pointer;transition:all .2s;
+}
+.bp{background:linear-gradient(135deg,var(--red),#a0153a);color:#fff}
+.bp:hover{opacity:.85;transform:translateY(-1px)}
+.bg{background:var(--acc);color:var(--gold);border:1px solid #B8860B}
+.bg:hover{background:#B8860B;color:#fff}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.stat-card{background:var(--bg2);border-radius:7px;padding:8px;text-align:center;border:1px solid var(--bdr)}
+.stat-card .sv{font-size:18px;font-weight:700}
+.stat-card .sl{font-size:10px;color:var(--muted);margin-top:2px}
+.bar-wrap{margin-top:4px}
+.bar-lbl{font-size:10px;color:var(--muted);margin-bottom:3px}
+.bar-bg{height:7px;background:#2a2a4a;border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px}
+.cr{padding:9px;background:var(--bg2);border-radius:6px;border-left:3px solid var(--gold)}
+.cr-lbl{font-size:10px;color:var(--muted)}
+.cr-km{font-size:22px;font-weight:700;color:var(--gold)}
+.cr-desc{font-size:11px;color:var(--muted);margin-top:3px}
+.legr{display:flex;align-items:center;gap:9px;padding:6px 9px;background:var(--bg2);border-radius:6px;font-size:11px}
+.legi{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;flex-shrink:0}
+.leg-sq{width:16px;height:16px;border-radius:3px;flex-shrink:0}
+.leg-ci{width:16px;height:16px;border-radius:50%;flex-shrink:0}
+.tip{padding:8px;background:var(--bg2);border-radius:6px;font-size:10px;color:var(--muted);line-height:2}
+/* ★ MAP — สำคัญที่สุด ★ */
+#map{
+  flex:1;
+  min-width:0;
+  min-height:0;
+  position:relative;
+}
+#mbadge{
+  position:absolute;top:10px;right:10px;z-index:400;
+  background:rgba(22,33,62,.93);border:1px solid var(--acc);
+  border-radius:7px;padding:6px 12px;font-size:11px;
+  backdrop-filter:blur(4px);pointer-events:none;
+  display:flex;gap:10px;align-items:center;
+}
+@keyframes pulse{
+  0%  {box-shadow:0 0 0 0 rgba(239,68,68,.7)}
+  70% {box-shadow:0 0 0 8px rgba(239,68,68,0)}
+  100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}
+}
+.cp  .leaflet-popup-content-wrapper,
+.fp  .leaflet-popup-content-wrapper,
+.flp .leaflet-popup-content-wrapper{
+  background:var(--bg);color:var(--txt);
+  border-radius:11px;box-shadow:0 8px 30px rgba(0,0,0,.6);min-width:220px;
+}
+.cp  .leaflet-popup-content-wrapper{border:1px solid var(--acc)}
+.fp  .leaflet-popup-content-wrapper{border:1px solid #2d5a27}
+.flp .leaflet-popup-content-wrapper{border:1px solid #1e3a5f}
+.cp  .leaflet-popup-tip,.fp .leaflet-popup-tip,.flp .leaflet-popup-tip{background:var(--bg)}
+.cp  .leaflet-popup-content,
+.fp  .leaflet-popup-content,
+.flp .leaflet-popup-content{margin:13px 15px}
+.pu-head,.food-head,.fl-head{display:flex;align-items:center;gap:9px;padding-bottom:9px;border-bottom:1px solid var(--bdr);margin-bottom:9px}
+.pu-icon,.food-icon,.fl-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.pu-name,.food-title,.fl-title{font-size:13px;font-weight:700;color:#fff}
+.pu-line,.food-sub,.fl-sub{font-size:10px;color:var(--muted);margin-top:1px}
+.pu-table,.food-table,.fl-table{width:100%;border-collapse:collapse;font-size:11px}
+.pu-table td,.food-table td,.fl-table td{padding:4px 3px}
+.pu-table td:first-child,.food-table td:first-child,.fl-table td:first-child{color:var(--muted);width:72px}
+.pu-table td:last-child,.food-table td:last-child,.fl-table td:last-child{color:#fff;font-weight:600}
+.pu-table tr:not(:last-child) td,
+.food-table tr:not(:last-child) td,
+.fl-table tr:not(:last-child) td{border-bottom:1px solid var(--bdr)}
+.pu-foot,.fl-foot{display:flex;justify-content:space-between;align-items:center;margin-top:9px}
+.pbadge{padding:2px 9px;border-radius:9px;font-size:9px;font-weight:700;color:#fff}
+.pzoom{background:var(--red);border:none;color:#fff;padding:3px 9px;border-radius:9px;font-size:10px;cursor:pointer;font-family:'Sarabun',sans-serif}
+.pzoom:hover{opacity:.8}
+.risk-badge{display:inline-block;margin-top:7px;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:700}
+.food-bar-wrap{margin-top:6px}
+.food-bar-lbl{font-size:10px;color:var(--muted);margin-bottom:3px}
+.food-bar-bg{height:7px;background:#2a2a4a;border-radius:4px;overflow:hidden}
+.food-bar-fill{height:100%;border-radius:4px}
+</style>
+</head>
+<body>
+
+<div id="hdr">
+  <div class="hdr-logo">
+    <i class="fas fa-map-location-dot"></i>
+    <div>
+      <div class="hdr-title">Web GIS <span>Bangkok</span> — Transit & Food & Flood</div>
+      <div class="hdr-sub">ระบบสารสนเทศภูมิศาสตร์ กรุงเทพมหานครและปริมณฑล</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="chip"><i class="fas fa-train-subway"></i> <span id="hd-s">0</span>/<span id="hd-t">0</span></div>
+    <div class="chip green"><i class="fas fa-seedling"></i> <span id="hd-f">0</span></div>
+    <div class="chip blue"><i class="fas fa-water"></i> <span id="hd-fl">0</span></div>
+    <div class="chip dim">Leaflet.js</div>
+  </div>
+</div>
+
+<div id="main">
+<div id="sb">
+  <div class="sh"><i class="fas fa-layer-group"></i>ชั้นข้อมูล</div>
+  <div class="sb-body" id="lyrs">
+    <div class="grp-label" style="color:var(--gold)">🚇 สถานีรถไฟฟ้า</div>
+    <div class="lr"><div class="ll"><div class="dot" style="background:#4CAF50"></div><div><div class="ln">BTS สุขุมวิท</div><div class="ls">Sukhumvit Line</div></div></div><label class="sw"><input type="checkbox" id="l-btsSukhumvit" checked onchange="toggleLyr('btsSukhumvit',this.checked)"><span class="sk"></span></label></div>
+    <div class="lr"><div class="ll"><div class="dot" style="background:#1B5E20"></div><div><div class="ln">BTS สีลม</div><div class="ls">Silom Line</div></div></div><label class="sw"><input type="checkbox" id="l-btsSilom" checked onchange="toggleLyr('btsSilom',this.checked)"><span class="sk"></span></label></div>
+    <div class="lr"><div class="ll"><div class="dot" style="background:#FFD700"></div><div><div class="ln">BTS สีทอง</div><div class="ls">Gold Line</div></div></div><label class="sw"><input type="checkbox" id="l-btsGold" checked onchange="toggleLyr('btsGold',this.checked)"><span class="sk"></span></label></div>
+    <div class="lr"><div class="ll"><div class="dot" style="background:#1565C0"></div><div><div class="ln">MRT สีน้ำเงิน</div><div class="ls">Blue Line</div></div></div><label class="sw"><input type="checkbox" id="l-mrtBlue" checked onchange="toggleLyr('mrtBlue',this.checked)"><span class="sk"></span></label></div>
+    <div class="lr"><div class="ll"><div class="dot" style="background:#6A1B9A"></div><div><div class="ln">MRT สีม่วง</div><div class="ls">Purple Line</div></div></div><label class="sw"><input type="checkbox" id="l-mrtPurple" checked onchange="toggleLyr('mrtPurple',this.checked)"><span class="sk"></span></label></div>
+    <div class="lr"><div class="ll"><div class="dot" style="background:#F9A825"></div><div><div class="ln">MRT สีเหลือง</div><div class="ls">Yellow Line</div></div></div><label class="sw"><input type="checkbox" id="l-mrtYellow" checked onchange="toggleLyr('mrtYellow',this.checked)"><span class="sk"></span></label></div>
+    <div class="grp-label" style="color:#4ade80">🌾 ความมั่นคงด้านอาหาร</div>
+    <div class="lr"><div class="ll"><div class="dot" style="background:#22c55e"></div><div><div class="ln">แหล่งผลิตอาหาร</div><div class="ls">Food Production</div></div></div><label class="sw"><input type="checkbox" id="l-foodProd" checked onchange="toggleLyr('foodProd',this.checked)"><span class="sk"></span></label></div>
+    <div class="lr"><div class="ll"><div class="dot" style="background:#f97316"></div><div><div class="ln">ตลาดอาหาร</div><div class="ls">Food Market</div></div></div><label class="sw"><input type="checkbox" id="l-foodMarket" checked onchange="toggleLyr('foodMarket',this.checked)"><span class="sk"></span></label></div>
+    <div class="lr"><div class="ll"><div class="dot" style="background:#ef4444"></div><div><div class="ln">พื้นที่เสี่ยงขาดแคลน</div><div class="ls">Food Insecurity</div></div></div><label class="sw"><input type="checkbox" id="l-foodRisk" checked onchange="toggleLyr('foodRisk',this.checked)"><span class="sk"></span></label></div>
+    <div class="lr"><div class="ll"><div class="dot" style="background:#3b82f6"></div><div><div class="ln">คลังอาหาร</div><div class="ls">Food Warehouse</div></div></div><label class="sw"><input type="checkbox" id="l-foodStore" checked onchange="toggleLyr('foodStore',this.checked)"><span class="sk"></span></label></div>
+    <div class="grp-label" style="color:#60a5fa">🌊 จุดเสี่ยงน้ำท่วม</div>
+    <div class="lr"><div class="ll"><div class="dot" style="background:#ef4444"></div><div><div class="ln">จุดเสี่ยงสูง</div><div class="ls">High Risk</div></div></div><label class="sw"><input type="checkbox" id="l-floodHigh" checked onchange="toggleLyr('floodHigh',this.checked)"><span class="sk"></span></label></div>
+    <div class="lr"><div class="ll"><div class="dot" style="background:#f97316"></div><div><div class="ln">จุดเฝ้าระวัง</div><div class="ls">Watch</div></div></div><label class="sw"><input type="checkbox" id="l-floodWatch" checked onchange="toggleLyr('floodWatch',this.checked)"><span class="sk"></span></label></div>
+    <div class="lr"><div class="ll"><div class="dot" style="background:#facc15"></div><div><div class="ln">สถานีสูบน้ำ</div><div class="ls">Pump Station</div></div></div><label class="sw"><input type="checkbox" id="l-floodDrain" checked onchange="toggleLyr('floodDrain',this.checked)"><span class="sk"></span></label></div>
+  </div>
+
+  <div class="sh"><i class="fas fa-filter"></i>กรองข้อมูล</div>
+  <div class="sb-body">
+    <div class="fl">🔍 ค้นหา</div>
+    <input id="f-search" class="fc" type="text" placeholder="ชื่อสถานที่ ถนน เขต..." oninput="applyFilter()"/>
+    <div class="fl">📂 ประเภทข้อมูล</div>
+    <select id="f-type" class="fc" onchange="applyFilter()">
+      <option value="all">ทั้งหมด</option>
+      <option value="transit">🚇 สถานีรถไฟฟ้า</option>
+      <option value="food">🌾 ความมั่นคงด้านอาหาร</option>
+      <option value="flood">🌊 จุดเสี่ยงน้ำท่วม</option>
+    </select>
+    <div class="fl">🗂️ หมวดย่อย</div>
+    <select id="f-sub" class="fc" onchange="applyFilter()">
+      <option value="all">ทั้งหมด</option>
+      <optgroup label="🚇 รถไฟฟ้า">
+        <option value="btsSukhumvit">BTS สุขุมวิท</option>
+        <option value="btsSilom">BTS สีลม</option>
+        <option value="btsGold">BTS สีทอง</option>
+        <option value="mrtBlue">MRT สีน้ำเงิน</option>
+        <option value="mrtPurple">MRT สีม่วง</option>
+        <option value="mrtYellow">MRT สีเหลือง</option>
+      </optgroup>
+      <optgroup label="🌾 อาหาร">
+        <option value="foodProd">แหล่งผลิต</option>
+        <option value="foodMarket">ตลาดอาหาร</option>
+        <option value="foodRisk">พื้นที่เสี่ยง</option>
+        <option value="foodStore">คลังอาหาร</option>
+      </optgroup>
+      <optgroup label="🌊 น้ำท่วม">
+        <option value="floodHigh">จุดเสี่ยงสูง</option>
+        <option value="floodWatch">จุดเฝ้าระวัง</option>
+        <option value="floodDrain">สถานีสูบน้ำ</option>
+      </optgroup>
+    </select>
+    <div class="fl">🏙️ จังหวัด</div>
+    <select id="f-prov" class="fc" onchange="applyFilter()">
+      <option value="all">ทุกจังหวัด</option>
+    </select>
+    <button class="bg" onclick="resetFilter()"><i class="fas fa-rotate-left"></i> รีเซ็ต</button>
+  </div>
+
+  <div class="sh"><i class="fas fa-chart-bar"></i>สถิติภาวะทุพโภชนาการ</div>
+  <div class="sb-body">
+    <div style="font-size:10px;color:#888">แหล่งข้อมูล: สำนักงานสถิติแห่งชาติ / FAO</div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="sv" style="color:#ef4444">9.08%</div><div class="sl">ขาดอาหาร กทม. 2565</div></div>
+      <div class="stat-card"><div class="sv" style="color:#f97316">5.20%</div><div class="sl">ขาดอาหาร ภาคกลาง 2565</div></div>
+      <div class="stat-card"><div class="sv" style="color:#22c55e">3.33%</div><div class="sl">ขาดอาหาร ภาคกลาง 2567</div></div>
+      <div class="stat-card"><div class="sv" style="color:#3b82f6">1.74%</div><div class="sl">รุนแรง กทม. 2565</div></div>
+    </div>
+    <div class="bar-wrap"><div class="bar-lbl">กทม. ขาดอาหารปานกลาง 9.08%</div><div class="bar-bg"><div class="bar-fill" style="width:9.08%;background:#ef4444"></div></div></div>
+    <div class="bar-wrap"><div class="bar-lbl">กทม. ขาดอาหารรุนแรง 1.74%</div><div class="bar-bg"><div class="bar-fill" style="width:17.4%;background:#dc2626"></div></div></div>
+    <div class="bar-wrap"><div class="bar-lbl">ภาคกลาง 2567 ปานกลาง 3.33%</div><div class="bar-bg"><div class="bar-fill" style="width:3.33%;background:#22c55e"></div></div></div>
+  </div>
+
+  <div class="sh"><i class="fas fa-magnifying-glass-location"></i>Zoom ไปยังสถานที่</div>
+  <div class="sb-body">
+    <div class="fl">เลือกสถานที่</div>
+    <select id="z-sel" class="fc" onchange="zoomTo(this.value)"><option value="">-- เลือก --</option></select>
+  </div>
+
+  <div class="sh"><i class="fas fa-ruler-combined"></i>คำนวณระยะทาง</div>
+  <div class="sb-body">
+    <div class="fl">ต้นทาง</div>
+    <select id="c-from" class="fc"><option value="">-- ต้นทาง --</option></select>
+    <div class="fl">ปลายทาง</div>
+    <select id="c-to" class="fc"><option value="">-- ปลายทาง --</option></select>
+    <button class="bp" onclick="calcDist()"><i class="fas fa-calculator"></i> คำนวณ</button>
+    <div id="c-res" class="cr" style="display:none">
+      <div class="cr-lbl">ระยะทางเส้นตรง</div>
+      <div id="c-km" class="cr-km"></div>
+      <div id="c-desc" class="cr-desc"></div>
+    </div>
+  </div>
+
+  <div class="sh"><i class="fas fa-circle-info"></i>สัญลักษณ์</div>
+  <div class="sb-body">
+    <div class="grp-label" style="color:var(--gold)">🚇 สถานีรถไฟฟ้า</div>
+    <div class="legr"><div class="legi" style="background:#4CAF50">BTS</div>BTS สุขุมวิท</div>
+    <div class="legr"><div class="legi" style="background:#1B5E20">BTS</div>BTS สีลม</div>
+    <div class="legr"><div class="legi" style="background:#FFD700;color:#333">BTS</div>BTS สีทอง</div>
+    <div class="legr"><div class="legi" style="background:#1565C0">MRT</div>MRT สีน้ำเงิน</div>
+    <div class="legr"><div class="legi" style="background:#6A1B9A">MRT</div>MRT สีม่วง</div>
+    <div class="legr"><div class="legi" style="background:#F9A825;color:#333">MRT</div>MRT สีเหลือง</div>
+    <div class="grp-label" style="color:#4ade80">🌾 ความมั่นคงด้านอาหาร</div>
+    <div class="legr"><div class="leg-sq" style="background:#22c55e"></div>แหล่งผลิตอาหาร</div>
+    <div class="legr"><div class="leg-sq" style="background:#f97316"></div>ตลาดอาหาร</div>
+    <div class="legr"><div class="leg-sq" style="background:#ef4444"></div>พื้นที่เสี่ยงขาดแคลน</div>
+    <div class="legr"><div class="leg-sq" style="background:#3b82f6"></div>คลังอาหาร</div>
+    <div class="grp-label" style="color:#60a5fa">🌊 จุดเสี่ยงน้ำท่วม</div>
+    <div class="legr"><div class="leg-ci" style="background:#ef4444"></div>จุดเสี่ยงสูง</div>
+    <div class="legr"><div class="leg-ci" style="background:#f97316"></div>จุดเฝ้าระวัง</div>
+    <div class="legr"><div class="leg-ci" style="background:#facc15"></div>สถานีสูบน้ำ</div>
+    <div class="tip">
+      <div><i class="fas fa-hand-pointer" style="color:var(--gold)"></i> คลิก Marker ดูข้อมูล</div>
+      <div><i class="fas fa-toggle-on"    style="color:var(--gold)"></i> Toggle เปิด-ปิด Layer</div>
+      <div><i class="fas fa-ruler"        style="color:var(--gold)"></i> วัดระยะระหว่างจุด</div>
+    </div>
+  </div>
+</div><!-- /sb -->
+
+<div id="map">
+  <div id="mbadge">
+    <span><i class="fas fa-train-subway" style="color:var(--gold)"></i> <b id="b-s">0</b>/<b id="b-t">0</b></span>
+    <span><i class="fas fa-seedling" style="color:#4ade80"></i> <b id="b-f">0</b></span>
+    <span><i class="fas fa-water" style="color:#60a5fa"></i> <b id="b-fl">0</b></span>
+  </div>
+</div>
+</div><!-- /main -->
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ============================================================
+   DATA — สถานีรถไฟฟ้า
+============================================================ */
+const STATIONS=[
+  {id:"CEN",name:"สถานีสยาม",            sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตปทุมวัน",  province:"กรุงเทพมหานคร",loc:"บริเวณแยกสยามสแควร์",             lat:13.74572,lng:100.53304},
+  {id:"N1", name:"สถานีชิดลม",           sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตปทุมวัน",  province:"กรุงเทพมหานคร",loc:"ถนนเพลินจิต",                     lat:13.74406,lng:100.54296},
+  {id:"N2", name:"สถานีเพลินจิต",        sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตปทุมวัน",  province:"กรุงเทพมหานคร",loc:"ถนนเพลินจิต",                     lat:13.74267,lng:100.54884},
+  {id:"N3", name:"สถานีนานา",            sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตวัฒนา",    province:"กรุงเทพมหานคร",loc:"ถนนสุขุมวิท ซอย 3",               lat:13.73965,lng:100.55459},
+  {id:"N4", name:"สถานีอโศก",            sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตวัฒนา",    province:"กรุงเทพมหานคร",loc:"ถนนสุขุมวิท ตัดถนนอโศกมนตรี",     lat:13.73614,lng:100.56028},
+  {id:"N5", name:"สถานีพร้อมพงษ์",       sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตวัฒนา",    province:"กรุงเทพมหานคร",loc:"ถนนสุขุมวิท ซอย 24",              lat:13.73119,lng:100.56697},
+  {id:"N6", name:"สถานีทองหล่อ",         sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตวัฒนา",    province:"กรุงเทพมหานคร",loc:"ถนนสุขุมวิท ซอย 55",              lat:13.72776,lng:100.57226},
+  {id:"N7", name:"สถานีเอกมัย",          sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตวัฒนา",    province:"กรุงเทพมหานคร",loc:"ถนนสุขุมวิท ซอย 63",              lat:13.72036,lng:100.58597},
+  {id:"N8", name:"สถานีพระโขนง",         sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตคลองเตย",  province:"กรุงเทพมหานคร",loc:"ถนนสุขุมวิท ซอย 71",              lat:13.71478,lng:100.59579},
+  {id:"N9", name:"สถานีอ่อนนุช",         sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตประเวศ",   province:"กรุงเทพมหานคร",loc:"ถนนสุขุมวิท ซอย 77",              lat:13.70571,lng:100.60101},
+  {id:"N10",name:"สถานีบางจาก",          sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตพระโขนง",  province:"กรุงเทพมหานคร",loc:"ถนนสุขุมวิท ซอย 93",              lat:13.69888,lng:100.60529},
+  {id:"N11",name:"สถานีปุณณวิถี",        sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตพระโขนง",  province:"กรุงเทพมหานคร",loc:"ถนนสุขุมวิท ซอย 101",             lat:13.69316,lng:100.60851},
+  {id:"N12",name:"สถานีอุดมสุข",         sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตบางนา",    province:"กรุงเทพมหานคร",loc:"ถนนสุขุมวิท ซอย 103",             lat:13.68705,lng:100.61249},
+  {id:"N13",name:"สถานีบางนา",           sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตบางนา",    province:"กรุงเทพมหานคร",loc:"ถนนสุขุมวิท ตัดถนนบางนา",          lat:13.68001,lng:100.61725},
+  {id:"N14",name:"สถานีแบริ่ง",          sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตบางนา",    province:"กรุงเทพมหานคร",loc:"ถนนสุขุมวิท ซอย 107",             lat:13.67333,lng:100.62107},
+  {id:"W1", name:"สถานีราชเทวี",         sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตราชเทวี",  province:"กรุงเทพมหานคร",loc:"ถนนเพชรบุรี",                     lat:13.75092,lng:100.53233},
+  {id:"W2", name:"สถานีพญาไท",           sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตราชเทวี",  province:"กรุงเทพมหานคร",loc:"บริเวณทางแยกพญาไท",               lat:13.75580,lng:100.53481},
+  {id:"W3", name:"สถานีอารีย์",          sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตพญาไท",    province:"กรุงเทพมหานคร",loc:"ซอยพหลโยธิน 7",                   lat:13.77955,lng:100.54458},
+  {id:"W4", name:"สถานีสะพานควาย",       sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตพญาไท",    province:"กรุงเทพมหานคร",loc:"บริเวณสะพานควาย",                 lat:13.78590,lng:100.54612},
+  {id:"W5", name:"สถานีหมอชิต",          sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตจตุจักร",  province:"กรุงเทพมหานคร",loc:"ถนนพหลโยธิน",                     lat:13.80285,lng:100.55376},
+  {id:"W6", name:"สถานีห้าแยกลาดพร้าว", sys:"bts",line:"btsSukhumvit",color:"#4CAF50",district:"เขตจตุจักร",  province:"กรุงเทพมหานคร",loc:"บริเวณห้าแยกลาดพร้าว",             lat:13.81500,lng:100.55901},
+  {id:"S1", name:"สถานีสนามกีฬาฯ",       sys:"bts",line:"btsSilom",    color:"#1B5E20",district:"เขตปทุมวัน",  province:"กรุงเทพมหานคร",loc:"หน้าสนามกีฬาแห่งชาติ",            lat:13.74651,lng:100.52917},
+  {id:"S2", name:"สถานีราชดำริ",          sys:"bts",line:"btsSilom",    color:"#1B5E20",district:"เขตปทุมวัน",  province:"กรุงเทพมหานคร",loc:"ถนนราชดำริ",                      lat:13.74387,lng:100.53974},
+  {id:"S3", name:"สถานีศาลาแดง",          sys:"bts",line:"btsSilom",    color:"#1B5E20",district:"เขตบางรัก",   province:"กรุงเทพมหานคร",loc:"ถนนสีลม",                         lat:13.72835,lng:100.53428},
+  {id:"S4", name:"สถานีช่องนนทรี",        sys:"bts",line:"btsSilom",    color:"#1B5E20",district:"เขตบางรัก",   province:"กรุงเทพมหานคร",loc:"ถนนนราธิวาสราชนครินทร์",          lat:13.72260,lng:100.52287},
+  {id:"S5", name:"สถานีสุรศักดิ์",        sys:"bts",line:"btsSilom",    color:"#1B5E20",district:"เขตสาทร",     province:"กรุงเทพมหานคร",loc:"ถนนนราธิวาสราชนครินทร์",          lat:13.71930,lng:100.52157},
+  {id:"S6", name:"สถานีสะพานตากสิน",     sys:"bts",line:"btsSilom",    color:"#1B5E20",district:"เขตบางรัก",   province:"กรุงเทพมหานคร",loc:"บริเวณสะพานตากสิน",               lat:13.71805,lng:100.50969},
+  {id:"S7", name:"สถานีกรุงธนบุรี",      sys:"bts",line:"btsSilom",    color:"#1B5E20",district:"เขตคลองสาน",  province:"กรุงเทพมหานคร",loc:"แขวงคลองต้นไทร",                 lat:13.72106,lng:100.50371},
+  {id:"S8", name:"สถานีวงเวียนใหญ่",     sys:"bts",line:"btsSilom",    color:"#1B5E20",district:"เขตธนบุรี",   province:"กรุงเทพมหานคร",loc:"บริเวณวงเวียนใหญ่",               lat:13.72160,lng:100.49410},
+  {id:"S9", name:"สถานีโพธิ์นิมิตร",     sys:"bts",line:"btsSilom",    color:"#1B5E20",district:"เขตธนบุรี",   province:"กรุงเทพมหานคร",loc:"ถนนสมเด็จพระเจ้าตากสิน",          lat:13.72097,lng:100.47987},
+  {id:"S10",name:"สถานีตลาดพลู",         sys:"bts",line:"btsSilom",    color:"#1B5E20",district:"เขตธนบุรี",   province:"กรุงเทพมหานคร",loc:"ถนนเทอดไท ตลาดพลู",               lat:13.72171,lng:100.46963},
+  {id:"S11",name:"สถานีวุฒากาศ",         sys:"bts",line:"btsSilom",    color:"#1B5E20",district:"เขตจอมทอง",   province:"กรุงเทพมหานคร",loc:"ถนนเทอดไท",                       lat:13.72099,lng:100.46152},
+  {id:"S12",name:"สถานีบางหว้า",         sys:"bts",line:"btsSilom",    color:"#1B5E20",district:"เขตภาษีเจริญ",province:"กรุงเทพมหานคร",loc:"ถนนเพชรเกษม",                     lat:13.72266,lng:100.45289},
+  {id:"G1", name:"สถานีกรุงธนบุรี (G)",  sys:"bts",line:"btsGold",     color:"#FFD700",district:"เขตคลองสาน",  province:"กรุงเทพมหานคร",loc:"แขวงคลองต้นไทร",                 lat:13.72206,lng:100.50271},
+  {id:"G2", name:"สถานีเจริญนคร",        sys:"bts",line:"btsGold",     color:"#FFD700",district:"เขตคลองสาน",  province:"กรุงเทพมหานคร",loc:"เจริญนคร",                        lat:13.72647,lng:100.50906},
+  {id:"G3", name:"สถานีคลองสาน",         sys:"bts",line:"btsGold",     color:"#FFD700",district:"เขตคลองสาน",  province:"กรุงเทพมหานคร",loc:"สมเด็จเจ้าพระยา",                lat:13.73039,lng:100.50763},
+  {id:"BL07",name:"สถานีเตาปูน",         sys:"mrt",line:"mrtBlue",     color:"#1565C0",district:"เขตบางซื่อ",  province:"กรุงเทพมหานคร",loc:"แยกเตาปูน",                       lat:13.80615,lng:100.53076},
+  {id:"BL08",name:"สถานีบางซื่อ",        sys:"mrt",line:"mrtBlue",     color:"#1565C0",district:"เขตบางซื่อ",  province:"กรุงเทพมหานคร",loc:"ถนนกำแพงเพชร 2",                  lat:13.80474,lng:100.54940},
+  {id:"BL13",name:"สถานีรัชดาภิเษก",     sys:"mrt",line:"mrtBlue",     color:"#1565C0",district:"เขตห้วยขวาง", province:"กรุงเทพมหานคร",loc:"ถนนรัชดาภิเษก ตัดลาดพร้าว",        lat:13.80059,lng:100.57039},
+  {id:"BL15",name:"สถานีห้วยขวาง",       sys:"mrt",line:"mrtBlue",     color:"#1565C0",district:"เขตห้วยขวาง", province:"กรุงเทพมหานคร",loc:"ถนนรัชดาภิเษก",                   lat:13.77847,lng:100.57229},
+  {id:"BL18",name:"สถานีสีลม (MRT)",     sys:"mrt",line:"mrtBlue",     color:"#1565C0",district:"เขตบางรัก",   province:"กรุงเทพมหานคร",loc:"ใต้ถนนพระราม 4",                  lat:13.72869,lng:100.52748},
+  {id:"BL24",name:"สถานีสามย่าน",        sys:"mrt",line:"mrtBlue",     color:"#1565C0",district:"เขตปทุมวัน",  province:"กรุงเทพมหานคร",loc:"ถนนพระราม 4 สามย่าน",              lat:13.73136,lng:100.52655},
+  {id:"BL25",name:"สถานีหัวลำโพง",       sys:"mrt",line:"mrtBlue",     color:"#1565C0",district:"เขตป้อมปราบ", province:"กรุงเทพมหานคร",loc:"ถนนพระราม 4",                     lat:13.73753,lng:100.51694},
+  {id:"PP07",name:"สถานีแคราย",          sys:"mrt",line:"mrtPurple",   color:"#6A1B9A",district:"เมืองนนทบุรี",province:"นนทบุรี",       loc:"ถนนรัตนาธิเบศร์ ตัดติวานนท์",     lat:13.85853,lng:100.49133},
+  {id:"PP09",name:"สถานีกระทรวงสาธารณสุข",sys:"mrt",line:"mrtPurple",  color:"#6A1B9A",district:"เมืองนนทบุรี",province:"นนทบุรี",       loc:"ถนนติวานนท์",                     lat:13.84855,lng:100.51472},
+  {id:"PP15",name:"สถานีเตาปูน (PP)",    sys:"mrt",line:"mrtPurple",   color:"#6A1B9A",district:"เขตบางซื่อ",  province:"กรุงเทพมหานคร",loc:"แยกเตาปูน",                       lat:13.80715,lng:100.53176},
+  {id:"YL01",name:"สถานีลาดพร้าว (YL)", sys:"mrt",line:"mrtYellow",   color:"#F9A825",district:"เขตจตุจักร",  province:"กรุงเทพมหานคร",loc:"ถนนลาดพร้าว",                     lat:13.81906,lng:100.57099},
+  {id:"YL08",name:"สถานีบางกะปิ",        sys:"mrt",line:"mrtYellow",   color:"#F9A825",district:"เขตบางกะปิ",  province:"กรุงเทพมหานคร",loc:"ถนนลาดพร้าว ตัดประดิษฐ์มนูธรรม",  lat:13.76430,lng:100.63514},
+  {id:"YL13",name:"สถานีสวนหลวง ร.9",   sys:"mrt",line:"mrtYellow",   color:"#F9A825",district:"เขตสวนหลวง",  province:"กรุงเทพมหานคร",loc:"ถนนศรีนครินทร์",                   lat:13.72924,lng:100.66756},
+  {id:"YL20",name:"สถานีศรีด่าน",        sys:"mrt",line:"mrtYellow",   color:"#F9A825",district:"สมุทรปราการ", province:"สมุทรปราการ",   loc:"ต.สำโรงเหนือ อ.เมืองสมุทรปราการ", lat:13.63321,lng:100.63000},
+];
+
+/* ============================================================
+   DATA — ความมั่นคงด้านอาหาร
+============================================================ */
+const FOOD_DATA=[
+  {id:"FP01",name:"แปลงเกษตรอินทรีย์มีนบุรี", type:"foodProd",  province:"กรุงเทพมหานคร",district:"เขตมีนบุรี",      area:120, product:"ผัก ผลไม้ ข้าวอินทรีย์",   capacity:"50 ตัน/ปี",  risk:"low",   desc:"แปลงเกษตรอินทรีย์ขนาดใหญ่",             lat:13.81520,lng:100.72190},
+  {id:"FP02",name:"ศูนย์เกษตรลาดกระบัง",       type:"foodProd",  province:"กรุงเทพมหานคร",district:"เขตลาดกระบัง",    area:250, product:"ข้าว พืชผัก",              capacity:"200 ตัน/ปี", risk:"low",   desc:"ศูนย์การเรียนรู้และผลิตอาหารชุมชน",      lat:13.72780,lng:100.77890},
+  {id:"FP03",name:"ฟาร์มข้าวปทุมธานี",          type:"foodProd",  province:"ปทุมธานี",      district:"อ.เมืองปทุมธานี", area:800, product:"ข้าวหอมมะลิ ข้าวเหนียว",  capacity:"1,200 ตัน/ปี",risk:"low",  desc:"พื้นที่นาข้าวสำคัญของภาคกลาง",          lat:14.01850,lng:100.52930},
+  {id:"FP04",name:"สวนผักสมุทรสาคร",            type:"foodProd",  province:"สมุทรสาคร",     district:"อ.เมืองสมุทรสาคร",area:450,product:"ผักสด กะหล่ำปลี พริก",    capacity:"800 ตัน/ปี", risk:"medium",desc:"แหล่งผักสำคัญป้อนกรุงเทพฯ",             lat:13.54680,lng:100.27370},
+  {id:"FP05",name:"ไร่อ้อยสุพรรณบุรี",          type:"foodProd",  province:"สุพรรณบุรี",    district:"อ.บางปลาม้า",     area:1200,product:"อ้อย มันสำปะหลัง",        capacity:"5,000 ตัน/ปี",risk:"low",  desc:"พื้นที่เกษตรกรรมขนาดใหญ่",              lat:14.36520,lng:100.14780},
+  {id:"FP06",name:"สวนผลไม้นนทบุรี",            type:"foodProd",  province:"นนทบุรี",       district:"อ.ปากเกร็ด",      area:180, product:"ทุเรียน มะม่วง มังคุด",   capacity:"300 ตัน/ปี", risk:"medium",desc:"สวนผลไม้ดั้งเดิมริมเจ้าพระยา",          lat:13.91230,lng:100.49560},
+  {id:"FM01",name:"ตลาดไท ปทุมธานี",            type:"foodMarket",province:"ปทุมธานี",      district:"อ.คลองหลวง",      stalls:3500,daily:"500,000 คน/วัน",coverage:"ภาคกลาง",        risk:"low",   desc:"ตลาดค้าส่งผักผลไม้ที่ใหญ่ที่สุดในไทย", lat:14.07490,lng:100.60910},
+  {id:"FM02",name:"ตลาดสี่มุมเมือง",            type:"foodMarket",province:"กรุงเทพมหานคร",district:"เขตลาดพร้าว",     stalls:2000,daily:"300,000 คน/วัน",coverage:"กทม.ตอนเหนือ",    risk:"low",   desc:"ตลาดค้าส่งผักผลไม้และอาหารทะเล",        lat:13.85640,lng:100.62350},
+  {id:"FM03",name:"ตลาดคลองเตย",                type:"foodMarket",province:"กรุงเทพมหานคร",district:"เขตคลองเตย",      stalls:1200,daily:"150,000 คน/วัน",coverage:"กทม.ตอนกลาง",     risk:"medium",desc:"ตลาดสดที่ใหญ่ที่สุดในกรุงเทพฯ",         lat:13.71780,lng:100.56340},
+  {id:"FM04",name:"ตลาดมิ่งเมือง",              type:"foodMarket",province:"กรุงเทพมหานคร",district:"เขตบางกอกน้อย",   stalls:800, daily:"80,000 คน/วัน", coverage:"ฝั่งธนบุรี",       risk:"low",   desc:"ตลาดสดริมแม่น้ำเจ้าพระยา",              lat:13.75980,lng:100.48760},
+  {id:"FM05",name:"ตลาดนนทบุรี",                type:"foodMarket",province:"นนทบุรี",       district:"อ.เมืองนนทบุรี",  stalls:1500,daily:"200,000 คน/วัน",coverage:"นนทบุรี-ปากเกร็ด", risk:"low",   desc:"ตลาดกลางสินค้าเกษตรนนทบุรี",           lat:13.85410,lng:100.51320},
+  {id:"FM06",name:"ตลาดสมุทรปราการ",            type:"foodMarket",province:"สมุทรปราการ",   district:"อ.เมืองสมุทรปราการ",stalls:900,daily:"100,000 คน/วัน",coverage:"สมุทรปราการ",      risk:"medium",desc:"ตลาดสดและอาหารทะเลสดปากอ่าว",           lat:13.59830,lng:100.59670},
+  {id:"FR01",name:"ชุมชนคลองเตย",               type:"foodRisk",  province:"กรุงเทพมหานคร",district:"เขตคลองเตย",      population:100000,insecurity:9.08,severity:"high",  desc:"ชุมชนแออัด ประชากรเสี่ยงขาดแคลนอาหารสูง",lat:13.70450,lng:100.56120},
+  {id:"FR02",name:"ชุมชนมีนบุรี-ลาดกระบัง",     type:"foodRisk",  province:"กรุงเทพมหานคร",district:"เขตมีนบุรี",      population:85000, insecurity:7.50,severity:"high",  desc:"ชุมชนชานเมือง เข้าถึงอาหารคุณภาพได้ยาก", lat:13.80120,lng:100.71460},
+  {id:"FR03",name:"ชุมชนหนองจอก",               type:"foodRisk",  province:"กรุงเทพมหานคร",district:"เขตหนองจอก",      population:65000, insecurity:8.20,severity:"high",  desc:"พื้นที่ห่างไกล บริการอาหารไม่ทั่วถึง",   lat:13.85340,lng:100.85670},
+  {id:"FR04",name:"ชุมชนลาดหลุมแก้ว",           type:"foodRisk",  province:"ปทุมธานี",      district:"อ.ลาดหลุมแก้ว",   population:45000, insecurity:5.80,severity:"medium",desc:"เกษตรกรรายย่อย รายได้ไม่แน่นอน",         lat:13.98760,lng:100.43210},
+  {id:"FR05",name:"ชุมชนกระทุ่มแบน",            type:"foodRisk",  province:"สมุทรสาคร",     district:"อ.กระทุ่มแบน",    population:55000, insecurity:4.50,severity:"medium",desc:"แรงงานอุตสาหกรรม รายได้ไม่เพียงพอ",       lat:13.65480,lng:100.25670},
+  {id:"FR06",name:"ชุมชนพระประแดง",             type:"foodRisk",  province:"สมุทรปราการ",   district:"อ.พระประแดง",     population:70000, insecurity:3.80,severity:"medium",desc:"ชุมชนหนาแน่น ต้นทุนอาหารสูง",            lat:13.66320,lng:100.52140},
+  {id:"FR07",name:"ชุมชนบึงกุ่ม-บางกะปิ",       type:"foodRisk",  province:"กรุงเทพมหานคร",district:"เขตบึงกุ่ม",      population:90000, insecurity:6.50,severity:"high",  desc:"ชุมชนขนาดใหญ่ ตลาดอาหารไม่เพียงพอ",      lat:13.76890,lng:100.65430},
+  {id:"FS01",name:"คลังอาหารสำรองกรุงเทพฯ",     type:"foodStore", province:"กรุงเทพมหานคร",district:"เขตดอนเมือง",     capacity:"50,000 ตัน",type_store:"ธัญพืช-น้ำตาล",        risk:"low",   desc:"คลังสำรองอาหารเชิงยุทธศาสตร์ของรัฐ",     lat:13.91230,lng:100.60450},
+  {id:"FS02",name:"โกดังสินค้าเกษตรลาดกระบัง",  type:"foodStore", province:"กรุงเทพมหานคร",district:"เขตลาดกระบัง",    capacity:"30,000 ตัน",type_store:"ผักผลไม้-ข้าว",        risk:"low",   desc:"ศูนย์กระจายสินค้าเกษตรภาคกลาง",         lat:13.72110,lng:100.79560},
+  {id:"FS03",name:"คลังเย็นสมุทรปราการ",         type:"foodStore", province:"สมุทรปราการ",   district:"อ.เมืองสมุทรปราการ",capacity:"15,000 ตัน",type_store:"อาหารทะเล-เนื้อสัตว์",risk:"low",  desc:"ศูนย์แช่เย็นและกระจายอาหารทะเล",        lat:13.60120,lng:100.60780},
+  {id:"FS04",name:"ไซโลข้าวปทุมธานี",            type:"foodStore", province:"ปทุมธานี",      district:"อ.เมืองปทุมธานี", capacity:"80,000 ตัน",type_store:"ข้าวเปลือก-ข้าวสาร",   risk:"low",   desc:"ไซโลข้าวขนาดใหญ่ เก็บข้าวจากชาวนา",      lat:14.02340,lng:100.53670},
+  {id:"FS05",name:"คลังน้ำตาลสุพรรณบุรี",        type:"foodStore", province:"สุพรรณบุรี",    district:"อ.เมืองสุพรรณบุรี",capacity:"120,000 ตัน",type_store:"น้ำตาลทราย",           risk:"low",   desc:"คลังน้ำตาลขนาดใหญ่ ป้อนตลาดและส่งออก",  lat:14.47230,lng:100.11780},
+];
+
+/* ============================================================
+   DATA — จุดเสี่ยงน้ำท่วม
+============================================================ */
+const FLOOD_DATA=[
+  {id:"FH01",type:"floodHigh", name:"ถนนศรีอยุธยา หน้า สน.พญาไท",     district:"เขตราชเทวี",    road:"ถนนศรีอยุธยา",    cause:"ท่อระบายน้ำอุดตัน พื้นที่ลุ่มต่ำ",depth:"20-40 ซม.",duration:"1-3 ชม.", year:2566,severity:"high",  lat:13.76520,lng:100.53870},
+  {id:"FH02",type:"floodHigh", name:"ถนนสุทธิสารวินิจฉัย (ตลอดสาย)",  district:"เขตพญาไท",      road:"ถนนสุทธิสาร",     cause:"รับน้ำจากพื้นที่ลุ่มต่ำโดยรอบ",   depth:"15-30 ซม.",duration:"2-4 ชม.", year:2566,severity:"high",  lat:13.78500,lng:100.57200},
+  {id:"FH03",type:"floodHigh", name:"ถนนสนามไชย รอบสนามหลวง",          district:"เขตพระนคร",     road:"ถนนสนามไชย",      cause:"ท่อระบายน้ำเก่า รับน้ำไม่ทัน",    depth:"10-25 ซม.",duration:"1-2 ชม.", year:2566,severity:"high",  lat:13.74990,lng:100.49420},
+  {id:"FH04",type:"floodHigh", name:"แยกอโศก-สุขุมวิท",                district:"เขตวัฒนา",      road:"ถนนสุขุมวิท",     cause:"ปริมาณน้ำฝนสูง ระบายไม่ทัน",      depth:"20-50 ซม.",duration:"2-5 ชม.", year:2566,severity:"high",  lat:13.73610,lng:100.56010},
+  {id:"FH05",type:"floodHigh", name:"ถนนลาดพร้าว ช่วงห้าแยก",          district:"เขตจตุจักร",    road:"ถนนลาดพร้าว",     cause:"รอยต่อระบบระบายน้ำ ฝนสูง",        depth:"30-60 ซม.",duration:"3-6 ชม.", year:2566,severity:"high",  lat:13.81520,lng:100.55930},
+  {id:"FH06",type:"floodHigh", name:"ถนนรัชดาภิเษก แยกรัชดา-ลาดพร้าว",district:"เขตห้วยขวาง",   road:"ถนนรัชดาภิเษก",   cause:"คลองระบายน้ำไม่เพียงพอ",           depth:"25-45 ซม.",duration:"2-4 ชม.", year:2566,severity:"high",  lat:13.80050,lng:100.57020},
+  {id:"FH07",type:"floodHigh", name:"ซอยอารีย์ - ซอยพหลโยธิน 7",      district:"เขตพญาไท",      road:"ซอยพหลโยธิน 7",   cause:"ท่อระบายน้ำขนาดเล็ก",              depth:"15-35 ซม.",duration:"1-3 ชม.", year:2566,severity:"high",  lat:13.77960,lng:100.54460},
+  {id:"FH08",type:"floodHigh", name:"ถนนเพชรเกษม ช่วงบางแค",           district:"เขตบางแค",      road:"ถนนเพชรเกษม",     cause:"พื้นที่ลุ่มต่ำ รับน้ำจากชุมชน",   depth:"30-60 ซม.",duration:"4-8 ชม.", year:2566,severity:"high",  lat:13.71120,lng:100.41580},
+  {id:"FH09",type:"floodHigh", name:"ถนนกาญจนาภิเษก ช่วงบางบอน",      district:"เขตบางบอน",     road:"ถนนกาญจนาภิเษก",  cause:"พื้นที่ลุ่มต่ำ น้ำทะเลหนุน",       depth:"30-80 ซม.",duration:"5-12 ชม.",year:2566,severity:"high",  lat:13.64900,lng:100.41200},
+  {id:"FH10",type:"floodHigh", name:"คลองสาน - ถนนเจริญนคร",           district:"เขตคลองสาน",    road:"ถนนเจริญนคร",     cause:"น้ำทะเลหนุน คลองล้น",              depth:"20-50 ซม.",duration:"2-6 ชม.", year:2566,severity:"high",  lat:13.72630,lng:100.50890},
+  {id:"FH11",type:"floodHigh", name:"ถนนนวมินทร์ ช่วงคลองสอง",         district:"เขตบึงกุ่ม",    road:"ถนนนวมินทร์",     cause:"รับน้ำจากชานเมืองตะวันออก",        depth:"25-55 ซม.",duration:"4-8 ชม.", year:2566,severity:"high",  lat:13.80010,lng:100.66540},
+  {id:"FH12",type:"floodHigh", name:"ถนนราษฎร์บูรณะ (ตลอดสาย)",        district:"เขตราษฎร์บูรณะ",road:"ถนนราษฎร์บูรณะ",  cause:"พื้นที่ลุ่มต่ำ น้ำทะเลหนุน",       depth:"30-70 ซม.",duration:"5-10 ชม.",year:2566,severity:"high",  lat:13.67480,lng:100.50750},
+  {id:"FW01",type:"floodWatch",name:"ถนนพระราม 2 ช่วงวงแหวน",          district:"เขตจอมทอง",     road:"ถนนพระราม 2",     cause:"รับน้ำจากชานเมืองตะวันตก",         depth:"10-25 ซม.",duration:"1-3 ชม.", year:2566,severity:"medium",lat:13.65450,lng:100.44560},
+  {id:"FW02",type:"floodWatch",name:"ถนนพระราม 3 ช่วงบางโพงพาง",       district:"เขตยานนาวา",    road:"ถนนพระราม 3",     cause:"คลองระบายน้ำล้น ฝนตกหนัก",        depth:"10-20 ซม.",duration:"1-2 ชม.", year:2566,severity:"medium",lat:13.69870,lng:100.52340},
+  {id:"FW03",type:"floodWatch",name:"ถนนมิตรไมตรี เขตดินแดง",          district:"เขตดินแดง",     road:"ถนนมิตรไมตรี",    cause:"ระบบระบายน้ำเก่า",                 depth:"10-20 ซม.",duration:"1-2 ชม.", year:2566,severity:"medium",lat:13.76430,lng:100.55490},
+  {id:"FW04",type:"floodWatch",name:"ถนนประชาราษฎร์ สาย 2 แยกเตาปูน",  district:"เขตบางซื่อ",    road:"ถนนประชาราษฎร์",  cause:"พื้นที่รับน้ำจากชุมชนโดยรอบ",      depth:"10-25 ซม.",duration:"1-3 ชม.", year:2566,severity:"medium",lat:13.80600,lng:100.52700},
+  {id:"FW05",type:"floodWatch",name:"ถนนรามคำแหง ช่วงบางกะปิ",         district:"เขตบางกะปิ",    road:"ถนนรามคำแหง",     cause:"ท่อระบายน้ำไม่เพียงพอ",            depth:"15-30 ซม.",duration:"2-3 ชม.", year:2566,severity:"medium",lat:13.76310,lng:100.63580},
+  {id:"FW06",type:"floodWatch",name:"ถนนสีหบุรานุกิจ เขตมีนบุรี",       district:"เขตมีนบุรี",    road:"ถนนสีหบุรานุกิจ", cause:"ชานเมือง ระบบระบายน้ำไม่ครอบคลุม", depth:"20-40 ซม.",duration:"3-6 ชม.", year:2566,severity:"medium",lat:13.81340,lng:100.72450},
+  {id:"FW07",type:"floodWatch",name:"ถนนบางนา-ตราด ช่วง กม.3-7",        district:"เขตบางนา",      road:"ถนนบางนา-ตราด",   cause:"พื้นที่ลุ่มต่ำ น้ำขัง",            depth:"10-20 ซม.",duration:"1-2 ชม.", year:2566,severity:"medium",lat:13.67330,lng:100.63450},
+  {id:"FW08",type:"floodWatch",name:"ถนนเอกชัย เขตบางขุนเทียน",         district:"เขตบางขุนเทียน",road:"ถนนเอกชัย",       cause:"น้ำทะเลหนุน พื้นที่ลุ่ม",          depth:"20-50 ซม.",duration:"4-8 ชม.", year:2566,severity:"medium",lat:13.61120,lng:100.44390},
+  {id:"FW09",type:"floodWatch",name:"แยกหลักสี่ - ดอนเมือง",            district:"เขตดอนเมือง",   road:"ถนนวิภาวดีรังสิต", cause:"รับน้ำจากชานเมืองเหนือ",           depth:"10-25 ซม.",duration:"1-3 ชม.", year:2566,severity:"medium",lat:13.88430,lng:100.58760},
+  {id:"FW10",type:"floodWatch",name:"ถนนพหลโยธิน ช่วงรังสิต",          district:"เขตดอนเมือง",   road:"ถนนพหลโยธิน",     cause:"รับน้ำจากคลองระพีพัฒน์",           depth:"15-30 ซม.",duration:"2-4 ชม.", year:2566,severity:"medium",lat:13.90450,lng:100.59230},
+  {id:"FW11",type:"floodWatch",name:"ถนนเจริญกรุง ช่วงบางรัก",         district:"เขตบางรัก",     road:"ถนนเจริญกรุง",    cause:"น้ำทะเลหนุน คลองล้น",              depth:"10-30 ซม.",duration:"1-4 ชม.", year:2566,severity:"medium",lat:13.72560,lng:100.51340},
+  {id:"FW12",type:"floodWatch",name:"ถนนตากสิน เขตธนบุรี",             district:"เขตธนบุรี",     road:"ถนนตากสิน",       cause:"ระบบระบายน้ำเก่า ฝนตกสะสม",        depth:"10-25 ซม.",duration:"1-3 ชม.", year:2566,severity:"medium",lat:13.72050,lng:100.49760},
+  {id:"FD01",type:"floodDrain",name:"สถานีสูบน้ำคลองเตย",              district:"เขตคลองเตย",    pump_cap:"15 ลบ.ม./วิ", status:"ใช้งานได้ปกติ",year:2566,severity:"low",lat:13.70890,lng:100.56780},
+  {id:"FD02",type:"floodDrain",name:"สถานีสูบน้ำบึงมักกะสัน",           district:"เขตราชเทวี",    pump_cap:"25 ลบ.ม./วิ", status:"ใช้งานได้ปกติ",year:2566,severity:"low",lat:13.75340,lng:100.55230},
+  {id:"FD03",type:"floodDrain",name:"สถานีสูบน้ำคลองลาดพร้าว",          district:"เขตลาดพร้าว",   pump_cap:"20 ลบ.ม./วิ", status:"ใช้งานได้ปกติ",year:2566,severity:"low",lat:13.83920,lng:100.58140},
+  {id:"FD04",type:"floodDrain",name:"สถานีสูบน้ำคลองพระโขนง",           district:"เขตพระโขนง",    pump_cap:"18 ลบ.ม./วิ", status:"ใช้งานได้ปกติ",year:2566,severity:"low",lat:13.70120,lng:100.59870},
+  {id:"FD05",type:"floodDrain",name:"สถานีสูบน้ำคลองบางซื่อ",           district:"เขตบางซื่อ",    pump_cap:"30 ลบ.ม./วิ", status:"ใช้งานได้ปกติ",year:2566,severity:"low",lat:13.80910,lng:100.53450},
+  {id:"FD06",type:"floodDrain",name:"สถานีสูบน้ำคลองราษฎร์บูรณะ",       district:"เขตราษฎร์บูรณะ",pump_cap:"12 ลบ.ม./วิ", status:"ซ่อมบำรุง",    year:2566,severity:"low",lat:13.67230,lng:100.50340},
+  {id:"FD07",type:"floodDrain",name:"ประตูระบายน้ำคลองภาษีเจริญ",       district:"เขตภาษีเจริญ",  pump_cap:"35 ลบ.ม./วิ", status:"ใช้งานได้ปกติ",year:2566,severity:"low",lat:13.72450,lng:100.43120},
+  {id:"FD08",type:"floodDrain",name:"ประตูระบายน้ำคลองประเวศ",          district:"เขตประเวศ",     pump_cap:"22 ลบ.ม./วิ", status:"ใช้งานได้ปกติ",year:2566,severity:"low",lat:13.70340,lng:100.67890},
+];
+
+/* ============================================================
+   MAP INIT — ★ ต้องทำหลัง DOM พร้อม ★
+============================================================ */
+const map = L.map('map',{center:[13.76,100.54],zoom:11,preferCanvas:true});
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  {attribution:'© CartoDB',maxZoom:19}).addTo(map);
+
+L.control.layers({
+  '🌙 Dark (CartoDB)':L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© CartoDB',maxZoom:19}),
+  '🗺️ OpenStreetMap' :L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}),
+}).addTo(map);
+
+/* ★ FIX: invalidateSize ★ */
+window.addEventListener('load', ()=>{ map.invalidateSize(); });
+window.addEventListener('resize', ()=>{ map.invalidateSize(); });
+
+/* ============================================================
+   LAYER GROUPS
+============================================================ */
+const LG={
+  btsSukhumvit:L.layerGroup().addTo(map),
+  btsSilom:    L.layerGroup().addTo(map),
+  btsGold:     L.layerGroup().addTo(map),
+  mrtBlue:     L.layerGroup().addTo(map),
+  mrtPurple:   L.layerGroup().addTo(map),
+  mrtYellow:   L.layerGroup().addTo(map),
+  foodProd:    L.layerGroup().addTo(map),
+  foodMarket:  L.layerGroup().addTo(map),
+  foodRisk:    L.layerGroup().addTo(map),
+  foodStore:   L.layerGroup().addTo(map),
+  floodHigh:   L.layerGroup().addTo(map),
+  floodWatch:  L.layerGroup().addTo(map),
+  floodDrain:  L.layerGroup().addTo(map),
+};
+let distLine=null;
+
+/* ============================================================
+   ICONS
+============================================================ */
+function mkTrainIcon(color,sys){
+  const light=color==='#FFD700'||color==='#F9A825';
+  const tc=light?'#333':'#fff';
+  const lb=sys==='bts'?'BTS':'MRT';
+  return L.divIcon({className:'',
+    html:`<div style="background:${color};color:${tc};width:28px;height:28px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-size:7px;font-weight:800;font-family:Sarabun,sans-serif;
+      border:2px solid rgba(255,255,255,.85);
+      box-shadow:0 2px 8px rgba(0,0,0,.5),0 0 6px ${color}66;cursor:pointer;">${lb}</div>`,
+    iconSize:[28,28],iconAnchor:[14,14],popupAnchor:[0,-16]});
+}
+
+const FOOD_CFG={
+  foodProd  :{bg:'#22c55e',icon:'🌾'},
+  foodMarket:{bg:'#f97316',icon:'🏪'},
+  foodRisk  :{bg:'#ef4444',icon:'⚠️'},
+  foodStore :{bg:'#3b82f6',icon:'🏭'},
+};
+function mkFoodIcon(type,sev){
+  const c=FOOD_CFG[type]||{bg:'#888',icon:'📍'};
+  const rc=sev==='high'?'#ef4444':sev==='medium'?'#f97316':'#22c55e';
+  return L.divIcon({className:'',
+    html:`<div style="position:relative;width:32px;height:32px;">
+      <div style="background:${c.bg};width:32px;height:32px;border-radius:8px;
+        display:flex;align-items:center;justify-content:center;font-size:15px;
+        border:2.5px solid rgba(255,255,255,.8);
+        box-shadow:0 3px 10px rgba(0,0,0,.5),0 0 8px ${c.bg}55;cursor:pointer;">${c.icon}</div>
+      ${type==='foodRisk'?`<div style="position:absolute;top:-3px;right:-3px;
+        width:10px;height:10px;border-radius:50%;background:${rc};border:2px solid #fff;"></div>`:''}
+    </div>`,
+    iconSize:[32,32],iconAnchor:[16,16],popupAnchor:[0,-18]});
+}
+
+const FLOOD_CFG={
+  floodHigh :{bg:'#ef4444',border:'#fca5a5',icon:'🌊'},
+  floodWatch:{bg:'#f97316',border:'#fdba74',icon:'👁️'},
+  floodDrain:{bg:'#facc15',border:'#fde68a',icon:'💧'},
+};
+function mkFloodIcon(type){
+  const c=FLOOD_CFG[type]||{bg:'#888',border:'#aaa',icon:'📍'};
+  const anim=type==='floodHigh'?'animation:pulse 2s infinite;':'';
+  return L.divIcon({className:'',
+    html:`<div style="background:${c.bg};width:32px;height:32px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;font-size:14px;
+      border:2.5px solid ${c.border};
+      box-shadow:0 3px 10px rgba(0,0,0,.5),0 0 10px ${c.bg}88;
+      cursor:pointer;${anim}">${c.icon}</div>`,
+    iconSize:[32,32],iconAnchor:[16,16],popupAnchor:[0,-18]});
+}
+
+/* ============================================================
+   POPUPS
+============================================================ */
+const LINE_NAME={
+  btsSukhumvit:'BTS สายสุขุมวิท',btsSilom:'BTS สายสีลม',btsGold:'BTS สายสีทอง',
+  mrtBlue:'MRT สายสีน้ำเงิน',mrtPurple:'MRT สายสีม่วง',mrtYellow:'MRT สายสีเหลือง',
+};
+function mkTrainPopup(s){
+  const light=s.color==='#FFD700'||s.color==='#F9A825';
+  const tc=light?'#333':'#fff';const lb=s.sys==='bts'?'BTS':'MRT';
+  return `<div class="pu-head">
+    <div class="pu-icon" style="background:${s.color};color:${tc}"><i class="fas fa-train-subway"></i></div>
+    <div><div class="pu-name">${s.name}</div><div class="pu-line">${LINE_NAME[s.line]||s.line}</div></div>
+  </div>
+  <table class="pu-table">
+    <tr><td>รหัส</td><td>${s.id}</td></tr>
+    <tr><td>ที่ตั้ง</td><td>${s.loc}</td></tr>
+    <tr><td>เขต</td><td>${s.district}</td></tr>
+    <tr><td>จังหวัด</td><td>${s.province}</td></tr>
+    <tr><td>พิกัด</td><td>${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}</td></tr>
+  </table>
+  <div class="pu-foot">
+    <span class="pbadge" style="background:${s.color};color:${tc}">${lb}</span>
+    <button class="pzoom" onclick="flyTo(${s.lat},${s.lng})"><i class="fas fa-location-crosshairs"></i> Zoom</button>
+  </div>`;
+}
+function mkFoodPopup(f){
+  const c=FOOD_CFG[f.type]||{bg:'#888',icon:'📍'};
+  const sev=f.severity||f.risk;
+  const rc=sev==='high'?'#ef4444':sev==='medium'?'#f97316':'#22c55e';
+  const st=sev==='high'?'สูง':sev==='medium'?'ปานกลาง':'ต่ำ';
+  let rows='';
+  if(f.type==='foodProd')   rows=`<tr><td>พื้นที่</td><td>${f.area} ไร่</td></tr><tr><td>ผลผลิต</td><td>${f.product}</td></tr><tr><td>กำลังผลิต</td><td>${f.capacity}</td></tr>`;
+  if(f.type==='foodMarket') rows=`<tr><td>จำนวนแผง</td><td>${f.stalls} แผง</td></tr><tr><td>ผู้ใช้บริการ</td><td>${f.daily}</td></tr><tr><td>ครอบคลุม</td><td>${f.coverage}</td></tr>`;
+  if(f.type==='foodRisk')   rows=`<tr><td>ประชากร</td><td>${f.population?.toLocaleString()} คน</td></tr><tr><td>ขาดอาหาร</td><td style="color:${rc};font-weight:700">${f.insecurity}%</td></tr>`;
+  if(f.type==='foodStore')  rows=`<tr><td>ความจุ</td><td>${f.capacity}</td></tr><tr><td>ประเภท</td><td>${f.type_store}</td></tr>`;
+  return `<div class="food-head">
+    <div class="food-icon" style="background:${c.bg}22;border:2px solid ${c.bg}"><span style="font-size:18px">${c.icon}</span></div>
+    <div><div class="food-title">${f.name}</div><div class="food-sub">${f.district} · ${f.province}</div></div>
+  </div>
+  <table class="food-table">${rows}<tr><td>จังหวัด</td><td>${f.province}</td></tr></table>
+  ${f.type==='foodRisk'?`<div class="food-bar-wrap">
+    <div class="food-bar-lbl">ระดับความเสี่ยง ${f.insecurity}%</div>
+    <div class="food-bar-bg"><div class="food-bar-fill" style="width:${Math.min(f.insecurity*5,100)}%;background:${rc}"></div></div>
+  </div><span class="risk-badge" style="background:${rc}22;color:${rc};border:1px solid ${rc}">⚠️ ความเสี่ยง${st}</span>`:''}
+  <div style="font-size:10px;color:#888;margin-top:7px;padding-top:7px;border-top:1px solid #2a2a4a">${f.desc}</div>
+  <div style="text-align:right;margin-top:6px"><button class="pzoom" onclick="flyTo(${f.lat},${f.lng})"><i class="fas fa-location-crosshairs"></i> Zoom</button></div>`;
+}
+function mkFloodPopup(f){
+  const c=FLOOD_CFG[f.type]||{bg:'#888',icon:'📍'};
+  const rc=f.severity==='high'?'#ef4444':f.severity==='medium'?'#f97316':'#22c55e';
+  const sevTxt=f.severity==='high'?'⚠️ สูง':f.severity==='medium'?'🔶 ปานกลาง':'✅ ต่ำ';
+  let rows='';
+  if(f.type==='floodHigh'||f.type==='floodWatch'){
+    rows=`<tr><td>ถนน</td><td>${f.road||'-'}</td></tr>
+          <tr><td>สาเหตุ</td><td>${f.cause||'-'}</td></tr>
+          <tr><td>ความลึก</td><td style="color:#60a5fa;font-weight:700">${f.depth||'-'}</td></tr>
+          <tr><td>ระยะเวลา</td><td>${f.duration||'-'}</td></tr>`;
+  } else {
+    rows=`<tr><td>กำลังสูบ</td><td style="color:#4ade80;font-weight:700">${f.pump_cap||'-'}</td></tr>
+          <tr><td>สถานะ</td><td style="color:${f.status==='ใช้งานได้ปกติ'?'#4ade80':'#f97316'};font-weight:700">
+            ${f.status==='ใช้งานได้ปกติ'?'✅ ':'⚠️ '}${f.status}</td></tr>`;
+  }
+  return `<div class="fl-head">
+    <div class="fl-icon" style="background:${c.bg}22;border:2px solid ${c.bg}"><span style="font-size:18px">${c.icon}</span></div>
+    <div><div class="fl-title">${f.name}</div><div class="fl-sub">${f.district} · ปี ${f.year}</div></div>
+  </div>
+  <table class="fl-table"><tr><td>เขต</td><td>${f.district}</td></tr>${rows}</table>
+  <div style="margin-top:7px;padding:5px 9px;border-radius:6px;background:${rc}22;border:1px solid ${rc};
+    font-size:11px;font-weight:700;color:${rc};display:flex;justify-content:space-between;">
+    <span>ระดับ: ${sevTxt}</span>
+    <span style="font-size:10px;font-weight:400;color:#888">ปี ${f.year}</span>
+  </div>
+  <div style="text-align:right;margin-top:7px"><button class="pzoom" onclick="flyTo(${f.lat},${f.lng})"><i class="fas fa-location-crosshairs"></i> Zoom</button></div>`;
+}
+
+/* ============================================================
+   BUILD MARKERS
+============================================================ */
+function buildMarkers(sts,fds,fls){
+  Object.values(LG).forEach(lg=>lg.clearLayers());
+  sts.forEach(s=>{
+    if(!LG[s.line])return;
+    L.marker([s.lat,s.lng],{icon:mkTrainIcon(s.color,s.sys),title:s.name})
+     .bindPopup(mkTrainPopup(s),{className:'cp',maxWidth:260,minWidth:210}).addTo(LG[s.line]);
+  });
+  fds.forEach(f=>{
+    if(!LG[f.type])return;
+    L.marker([f.lat,f.lng],{icon:mkFoodIcon(f.type,f.risk||f.severity),title:f.name})
+     .bindPopup(mkFoodPopup(f),{className:'fp',maxWidth:280,minWidth:230}).addTo(LG[f.type]);
+  });
+  fls.forEach(f=>{
+    if(!LG[f.type])return;
+    L.marker([f.lat,f.lng],{icon:mkFloodIcon(f.type),title:f.name})
+     .bindPopup(mkFloodPopup(f),{className:'flp',maxWidth:270,minWidth:225}).addTo(LG[f.type]);
+  });
+}
+
+/* ============================================================
+   CONTROLS
+============================================================ */
+function setBadge(s,f,fl){
+  ['b-s','hd-s'].forEach(id=>document.getElementById(id).textContent=s);
+  ['b-t','hd-t'].forEach(id=>document.getElementById(id).textContent=STATIONS.length);
+  ['b-f','hd-f'].forEach(id=>document.getElementById(id).textContent=f);
+  ['b-fl','hd-fl'].forEach(id=>document.getElementById(id).textContent=fl);
+}
+function toggleLyr(line,show){
+  show?LG[line].addTo(map):map.removeLayer(LG[line]);
+  setBadge(
+    STATIONS.filter(s=>map.hasLayer(LG[s.line])).length,
+    FOOD_DATA.filter(f=>map.hasLayer(LG[f.type])).length,
+    FLOOD_DATA.filter(f=>map.hasLayer(LG[f.type])).length
+  );
+}
+function applyFilter(){
+  const q=document.getElementById('f-search').value.toLowerCase().trim();
+  const type=document.getElementById('f-type').value;
+  const sub=document.getElementById('f-sub').value;
+  const prov=document.getElementById('f-prov').value;
+  const fSt=STATIONS.filter(s=>(type==='all'||type==='transit')&&(sub==='all'||s.line===sub)&&(!q||s.name.toLowerCase().includes(q)||s.loc.toLowerCase().includes(q))&&(prov==='all'||s.province===prov));
+  const fFd=FOOD_DATA.filter(f=>(type==='all'||type==='food')&&(sub==='all'||f.type===sub)&&(!q||f.name.toLowerCase().includes(q))&&(prov==='all'||f.province===prov));
+  const fFl=FLOOD_DATA.filter(f=>(type==='all'||type==='flood')&&(sub==='all'||f.type===sub)&&(!q||f.name.toLowerCase().includes(q)||f.district.toLowerCase().includes(q)));
+  buildMarkers(fSt,fFd,fFl);
+  Object.keys(LG).forEach(k=>{const cb=document.getElementById(`l-${k}`);(cb&&cb.checked)?LG[k].addTo(map):map.removeLayer(LG[k]);});
+  setBadge(fSt.length,fFd.length,fFl.length);
+}
+function resetFilter(){
+  document.getElementById('f-search').value='';
+  ['f-type','f-sub','f-prov'].forEach(id=>{document.getElementById(id).value='all';});
+  document.querySelectorAll('#lyrs input[type=checkbox]').forEach(cb=>{cb.checked=true;});
+  buildMarkers(STATIONS,FOOD_DATA,FLOOD_DATA);
+  Object.values(LG).forEach(lg=>lg.addTo(map));
+  setBadge(STATIONS.length,FOOD_DATA.length,FLOOD_DATA.length);
+}
+function zoomTo(val){if(!val)return;const[la,lo]=val.split(',').map(Number);flyTo(la,lo);}
+function flyTo(lat,lng){map.flyTo([lat,lng],16,{animate:true,duration:1.2});}
+function haversine(a,b,c,d){
+  const R=6371,dL=(c-a)*Math.PI/180,dO=(d-b)*Math.PI/180;
+  const x=Math.sin(dL/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dO/2)**2;
+  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+function calcDist(){
+  const fv=document.getElementById('c-from').value;
+  const tv=document.getElementById('c-to').value;
+  if(!fv||!tv){alert('กรุณาเลือกต้นทางและปลายทาง');return;}
+  if(fv===tv){alert('ต้นทางและปลายทางต้องไม่เหมือนกัน');return;}
+  const[a,b]=fv.split(',').map(Number);const[c,d]=tv.split(',').map(Number);
+  const km=haversine(a,b,c,d);
+  if(distLine)map.removeLayer(distLine);
+  distLine=L.polyline([[a,b],[c,d]],{color:'#e94560',weight:3,dashArray:'8,5',opacity:.9}).addTo(map);
+  map.fitBounds([[a,b],[c,d]],{padding:[60,60]});
+  const fo=document.getElementById('c-from'),to=document.getElementById('c-to');
+  document.getElementById('c-km').textContent=`${km.toFixed(2)} km`;
+  document.getElementById('c-desc').textContent=`${fo.options[fo.selectedIndex].text} → ${to.options[to.selectedIndex].text}`;
+  document.getElementById('c-res').style.display='block';
+}
+
+/* ============================================================
+   INIT DROPDOWNS
+============================================================ */
+function initDDs(){
+  const all=[
+    ...STATIONS.map(s=>({name:s.name,lat:s.lat,lng:s.lng,province:s.province})),
+    ...FOOD_DATA.map(f=>({name:f.name,lat:f.lat,lng:f.lng,province:f.province})),
+    ...FLOOD_DATA.map(f=>({name:f.name,lat:f.lat,lng:f.lng,province:'กรุงเทพมหานคร'})),
+  ];
+  [...new Set(all.map(x=>x.province).filter(Boolean))].sort().forEach(p=>{
+    document.getElementById('f-prov').innerHTML+=`<option value="${p}">${p}</option>`;
+  });
+  all.forEach(x=>{
+    const v=`${x.lat},${x.lng}`;
+    const o=`<option value="${v}">${x.name}</option>`;
+    document.getElementById('z-sel').innerHTML+=o;
+    document.getElementById('c-from').innerHTML+=o;
+    document.getElementById('c-to').innerHTML+=o;
+  });
+}
+
+/* ============================================================
+   ★ START ★
+============================================================ */
+buildMarkers(STATIONS,FOOD_DATA,FLOOD_DATA);
+initDDs();
+setBadge(STATIONS.length,FOOD_DATA.length,FLOOD_DATA.length);
+</script>
+</body>
+</html>
